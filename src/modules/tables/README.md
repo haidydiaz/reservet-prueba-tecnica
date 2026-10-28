@@ -1,17 +1,27 @@
-# Primer módulo: mesas
+# Módulo de mesas
 
-Implementar aquí `tables.routes.ts`, `tables.service.ts` y `tables.repository.ts`.
-Consultar `docs/GUIA_JUNIOR.md` antes de comenzar. La migración inicial está preparada;
-los endpoints quedan como ejercicio para el junior.
+Tres capas, cada una con una sola responsabilidad:
+
+| Archivo                | Responsabilidad                                                             |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `tables.routes.ts`     | HTTP: lee la petición, llama al servicio, escribe la respuesta y el estado. |
+| `tables.service.ts`    | Negocio: valida entradas (nombre, capacidad, estado, ID) y traduce errores. |
+| `tables.repository.ts` | SQL parametrizado. No conoce HTTP ni reglas de validación.                  |
+
+Todas las rutas están detrás de `requireAuth` (ver `src/app.ts`): sin sesión válida responden 401.
+
+| Método y ruta                  | Resultado                                                           |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `GET /api/tables`              | 200 y array de mesas                                                |
+| `POST /api/tables`             | 201 y mesa creada (`available`); 400 datos inválidos; 409 duplicado |
+| `PATCH /api/tables/:id/status` | 200 y mesa completa; 400 ID o estado inválido; 404 mesa inexistente |
 
 ## English
 
-Implement `tables.routes.ts`, `tables.service.ts` and `tables.repository.ts` here.
-Read the [junior guide](../../../docs/en/JUNIOR_GUIDE.md) first. The initial migration
-is ready; implementing the endpoints is the junior's exercise.
+Three layers (routes → service → repository). All routes require a valid session (401 otherwise).
+See [docs/SOLUCION.md](../../../docs/SOLUCION.md) for the full solution write-up.
 
 ## Русский
 
-Реализуйте здесь `tables.routes.ts`, `tables.service.ts` и `tables.repository.ts`.
-Сначала прочитайте [руководство](../../../docs/ru/JUNIOR_GUIDE.md). Начальная миграция
-подготовлена; реализация эндпоинтов — задание начинающего разработчика.
+Три слоя (routes → service → repository). Все маршруты требуют действительной сессии (иначе 401).
+Подробности — в [docs/SOLUCION.md](../../../docs/SOLUCION.md).
