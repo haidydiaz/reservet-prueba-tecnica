@@ -24,7 +24,25 @@ export function readConfig(env: NodeJS.ProcessEnv) {
   if (!['postgres:', 'postgresql:'].includes(databaseUrl.protocol) || !databaseUrl.hostname) {
     throw new Error('DATABASE_URL debe usar postgres:// o postgresql:// con un servidor.');
   }
-  return Object.freeze({ port, host, appEnv, databaseUrl: env.DATABASE_URL });
+  // La sesión caduca sola; salir (logout) la revoca de inmediato en la base de datos.
+  const sessionHours = Number(env.SESSION_TTL_HOURS ?? 8);
+  if (!Number.isFinite(sessionHours) || sessionHours <= 0 || sessionHours > 720) {
+    throw new Error('SESSION_TTL_HOURS debe ser un número mayor que 0 y de hasta 720.');
+  }
+  if (env.COOKIE_SECURE !== undefined && !['true', 'false'].includes(env.COOKIE_SECURE)) {
+    throw new Error('COOKIE_SECURE debe ser true o false.');
+  }
+  // En producción la cookie solo viaja por HTTPS (el túnel/proxy termina TLS).
+  const cookieSecure =
+    env.COOKIE_SECURE === undefined ? appEnv === 'pro' : env.COOKIE_SECURE === 'true';
+  return Object.freeze({
+    port,
+    host,
+    appEnv,
+    databaseUrl: env.DATABASE_URL,
+    sessionTtlMs: Math.round(sessionHours * 60 * 60 * 1000),
+    cookieSecure,
+  });
 }
 
 export const config = readConfig(process.env);

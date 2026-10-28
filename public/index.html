@@ -56,6 +56,39 @@
           </select></label
         >
       </section>
+      <section class="session-bar" id="session-bar" hidden>
+        <span id="session-user"></span>
+        <button type="button" class="secondary" id="logout">Cerrar sesión</button>
+      </section>
+      <section class="login-panel" id="login-panel" aria-labelledby="login-title" hidden>
+        <form id="login-form" novalidate>
+          <h2 id="login-title">Inicia sesión</h2>
+          <p id="login-hint" class="login-hint">
+            Usa el usuario creado con npm run db:seed para gestionar tus mesas.
+          </p>
+          <div class="login-fields">
+            <label id="login-username-label"
+              >Usuario<input
+                id="login-username"
+                name="username"
+                autocomplete="username"
+                maxlength="50"
+                required
+            /></label>
+            <label id="login-password-label"
+              >Contraseña<input
+                id="login-password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                maxlength="128"
+                required
+            /></label>
+          </div>
+          <p id="login-error" role="alert" class="form-error"></p>
+          <button type="submit" class="primary" id="login-submit">Entrar</button>
+        </form>
+      </section>
       <section class="stats" aria-label="Resumen del salón">
         <article>
           <span>Total de mesas</span><strong id="total">0</strong

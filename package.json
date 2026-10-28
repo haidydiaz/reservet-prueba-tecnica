@@ -10,6 +10,7 @@
     "db:up": "docker compose up -d --wait db",
     "db:down": "docker compose down",
     "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed-user.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",

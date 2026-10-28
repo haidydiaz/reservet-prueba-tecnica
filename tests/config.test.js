@@ -23,3 +23,20 @@ test('separa entorno lógico y dirección de escucha sin cambiar la base recibid
   assert.throws(() => readConfig({ DATABASE_URL, HOST: 'arbitrary-host' }), /HOST/);
   assert.equal(readConfig({ DATABASE_URL }).host, '127.0.0.1');
 });
+
+test('valida la duración de la sesión y el atributo Secure de la cookie', () => {
+  const DATABASE_URL = 'postgresql://user:secret@db:5432/reservet';
+  const dev = readConfig({ DATABASE_URL });
+  assert.equal(dev.sessionTtlMs, 8 * 60 * 60 * 1000);
+  assert.equal(dev.cookieSecure, false);
+  assert.equal(readConfig({ DATABASE_URL, APP_ENV: 'pro' }).cookieSecure, true);
+  assert.equal(
+    readConfig({ DATABASE_URL, APP_ENV: 'pro', COOKIE_SECURE: 'false' }).cookieSecure,
+    false,
+  );
+  assert.equal(readConfig({ DATABASE_URL, SESSION_TTL_HOURS: '0.5' }).sessionTtlMs, 30 * 60 * 1000);
+  for (const SESSION_TTL_HOURS of ['0', '-1', 'abc', '721']) {
+    assert.throws(() => readConfig({ DATABASE_URL, SESSION_TTL_HOURS }), /SESSION_TTL_HOURS/);
+  }
+  assert.throws(() => readConfig({ DATABASE_URL, COOKIE_SECURE: 'yes' }), /COOKIE_SECURE/);
+});

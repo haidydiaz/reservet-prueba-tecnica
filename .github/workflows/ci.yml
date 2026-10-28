@@ -5,6 +5,24 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # PostgreSQL real y desechable para las pruebas de integración. Credenciales solo de CI.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci_only
+          POSTGRES_DB: reservet_ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d reservet_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://ci:ci_only@localhost:5432/reservet_ci_test
+      TEST_DATABASE_URL: postgresql://ci:ci_only@localhost:5432/reservet_ci_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -12,6 +30,15 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Migrations and seed from an empty database (run twice to prove they are repeatable)
+        env:
+          SEED_USERNAME: ci-user
+          SEED_PASSWORD: ci-only-password
+        run: |
+          npm run db:migrate
+          npm run db:migrate
+          npm run db:seed
+          npm run db:seed
       - run: npm run check
       - name: Test deployment scripts without Docker or secrets
         shell: pwsh
