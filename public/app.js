@@ -5,8 +5,8 @@ const $ = (selector) => document.querySelector(selector);
 const statuses = ['available', 'occupied', 'out_of_service'];
 let lastNotice = null;
 let formError = null;
-const translatedError = (key, values = {}) =>
-  Object.assign(new Error(t(key, values)), { key, values });
+const translatedError = (key, values = {}, status) =>
+  Object.assign(new Error(t(key, values)), { key, values, status });
 const showFormError = (error = null) => {
   formError = error;
   $('#form-error').textContent = error
@@ -70,7 +70,38 @@ let demoTables = [
 let tables = [];
 let busy = false;
 let loadError = '';
+// Estado de sesión del modo API. El navegador nunca ve el token: viaja en una cookie HttpOnly.
+let authenticated = false;
+let needsLogin = false;
+let currentUser = null;
+let loginError = null;
 const isDemo = () => $('#source').value === 'demo';
+// En modo API no se puede crear ni editar hasta tener sesión; el servidor lo exige igualmente.
+const locked = () => !isDemo() && !authenticated;
+const showLoginError = (error = null) => {
+  loginError = error;
+  $('#login-error').textContent = error
+    ? error.key
+      ? t(error.key, error.values)
+      : error.message
+    : '';
+};
+const updateAuthUi = () => {
+  $('#login-panel').hidden = isDemo() || !needsLogin;
+  $('#session-bar').hidden = isDemo() || !authenticated;
+  $('#session-user').textContent = currentUser
+    ? t('signedInAs', { name: currentUser.username })
+    : '';
+};
+// Una respuesta 401 en modo API significa que no hay sesión (o caducó): se pide iniciar sesión.
+const handleAuthLoss = (error) => {
+  if (isDemo() || error?.status !== 401) return false;
+  authenticated = false;
+  currentUser = null;
+  needsLogin = true;
+  tables = [];
+  return true;
+};
 const notice = (key = '', error = false, values = {}) => {
   lastNotice = { key, error, values };
   $('#notice').textContent = key ? t(key, values) : '';
@@ -82,18 +113,22 @@ async function request(path, options = {}) {
   try {
     response = await fetch(path, {
       ...options,
+      credentials: 'same-origin',
       signal: AbortSignal.timeout(10000),
-      headers: { 'Content-Type': 'application/json' },
+      headers: options.body ? { 'Content-Type': 'application/json' } : {},
     });
   } catch {
     throw translatedError('connectionError');
   }
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    if (response.status === 404) throw translatedError('notFound', { path });
-    throw translatedError(response.status === 409 ? 'duplicate' : 'httpError', {
-      status: response.status,
-    });
+    const { status } = response;
+    if (status === 401) throw translatedError('sessionRequired', {}, status);
+    if (status === 404) throw translatedError('notFound', { path }, status);
+    if (status === 400) throw translatedError('validation', {}, status);
+    if (status === 409) throw translatedError('duplicate', {}, status);
+    if (status === 429) throw translatedError('tooManyAttempts', {}, status);
+    throw translatedError('httpError', { status }, status);
   }
   return body;
 }
@@ -118,16 +153,19 @@ function setBusy(value) {
   for (const selector of [
     '#source',
     '#refresh',
-    '#new-table',
     '#save-table',
     '#close-dialog',
     '#cancel-dialog',
+    '#login-submit',
+    '#logout',
   ])
     $(selector).disabled = value;
+  $('#new-table').disabled = value || locked();
   $('#tables').setAttribute('aria-busy', String(value));
   $('#save-table').textContent = t(value ? 'saving' : 'save');
+  $('#login-submit').textContent = t(value ? 'signingIn' : 'signIn');
   document.querySelectorAll('.card-bottom select').forEach((select) => {
-    select.disabled = value;
+    select.disabled = value || locked();
   });
 }
 
@@ -138,7 +176,8 @@ function render() {
   $('#total').textContent = tables.length;
   for (const status of statuses)
     $(`#${status}`).textContent = tables.filter((table) => table.status === status).length;
-  const query = $('#search').value.trim();
+  updateAuthUi();
+  const query = $('#search').value.trim().toLocaleLowerCase(locale());
   const filtered = tables.filter(
     (table) =>
       displayName(table).toLocaleLowerCase(locale()).includes(query) &&
@@ -154,10 +193,25 @@ function render() {
     const empty = document.createElement('div');
     empty.className = 'empty';
     const title = document.createElement('h3');
-    title.textContent = t(loadError ? 'errorTitle' : tables.length ? 'noMatches' : 'emptyTitle');
+    const locked_ = !isDemo() && needsLogin;
+    title.textContent = t(
+      locked_
+        ? 'loginRequiredTitle'
+        : loadError
+          ? 'errorTitle'
+          : tables.length
+            ? 'noMatches'
+            : 'emptyTitle',
+    );
     const description = document.createElement('p');
     description.textContent = t(
-      loadError ? 'errorHint' : tables.length ? 'searchHint' : 'emptyHint',
+      locked_
+        ? 'loginRequiredHint'
+        : loadError
+          ? 'errorHint'
+          : tables.length
+            ? 'searchHint'
+            : 'emptyHint',
     );
     empty.append(title, description);
     $('#tables').append(empty);
@@ -178,9 +232,17 @@ function render() {
     select.setAttribute('aria-label', t('statusOf', { name: displayName(table) }));
     for (const value of statuses) select.add(new Option(t(value), value));
     select.value = table.status;
-    select.disabled = busy;
+    select.disabled = busy || locked();
     select.addEventListener('change', () => changeStatus(table, select.value));
     $('#tables').append(card);
+  }
+}
+
+async function refreshSession() {
+  try {
+    currentUser = (await request('/api/auth/me'))?.user ?? null;
+  } catch {
+    currentUser = null;
   }
 }
 
@@ -201,10 +263,19 @@ async function load() {
       throw translatedError('invalidList');
     }
     tables = result;
+    if (!isDemo()) {
+      // Si la API respondió con datos hay sesión válida; se consulta quién es para mostrarlo.
+      authenticated = true;
+      needsLogin = false;
+      await refreshSession();
+    }
     notice(isDemo() ? 'demoNotice' : 'loaded');
   } catch (error) {
-    loadError = error;
-    notice(error.key || 'httpError', true, error.values);
+    if (handleAuthLoss(error)) notice('loginRequired');
+    else {
+      loadError = error;
+      notice(error.key || 'httpError', true, error.values);
+    }
   } finally {
     setBusy(false);
     render();
@@ -229,7 +300,8 @@ async function changeStatus(table, status) {
     }
     notice('updated', false, { name: displayName(table) });
   } catch (error) {
-    notice(error.key || 'httpError', true, error.values);
+    if (handleAuthLoss(error)) notice('sessionRequired', true);
+    else notice(error.key || 'httpError', true, error.values);
   } finally {
     setBusy(false);
     render();
@@ -253,7 +325,7 @@ $('#table-form').addEventListener('submit', async (event) => {
   const name = $('#table-name').value.trim();
   const capacity = Number($('#table-capacity').value);
   showFormError();
-  if (!name || name.length > 80 || !Number.isInteger(capacity) || capacity < 1 || capacity >= 20) {
+  if (!name || name.length > 80 || !Number.isInteger(capacity) || capacity < 1 || capacity > 20) {
     showFormError(translatedError('validation'));
     return;
   }
@@ -261,7 +333,8 @@ $('#table-form').addEventListener('submit', async (event) => {
   try {
     let created;
     if (isDemo()) {
-      if (demoTables.some((table) => table.name === name)) throw translatedError('duplicate');
+      if (demoTables.some((table) => table.name.toLowerCase() === name.toLowerCase()))
+        throw translatedError('duplicate');
       created = {
         id: Math.max(0, ...demoTables.map((table) => table.id)) + 1,
         name,
@@ -284,7 +357,59 @@ $('#table-form').addEventListener('submit', async (event) => {
     $('#table-dialog').close();
     notice('created', false, { name });
   } catch (error) {
-    showFormError(error);
+    if (handleAuthLoss(error)) {
+      $('#table-dialog').close();
+      notice('sessionRequired', true);
+    } else showFormError(error);
+  } finally {
+    setBusy(false);
+    render();
+  }
+});
+$('#login-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (busy) return;
+  const username = $('#login-username').value.trim();
+  const password = $('#login-password').value;
+  showLoginError();
+  if (!username || !password) {
+    showLoginError(translatedError('loginValidation'));
+    return;
+  }
+  setBusy(true);
+  let signedIn = false;
+  try {
+    const result = await request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+    currentUser = result?.user ?? null;
+    authenticated = true;
+    needsLogin = false;
+    signedIn = true;
+    $('#login-password').value = '';
+  } catch (error) {
+    // En el login un 401 significa credenciales incorrectas, no sesión caducada.
+    showLoginError(error.status === 401 ? translatedError('invalidCredentials') : error);
+  } finally {
+    setBusy(false);
+    render();
+  }
+  if (signedIn) await load();
+});
+$('#logout').addEventListener('click', async () => {
+  if (busy) return;
+  setBusy(true);
+  try {
+    await request('/api/auth/logout', { method: 'POST' });
+    authenticated = false;
+    needsLogin = true;
+    currentUser = null;
+    tables = [];
+    loadError = '';
+    notice('loggedOut');
+  } catch (error) {
+    notice(error.key || 'httpError', true, error.values);
   } finally {
     setBusy(false);
     render();
@@ -306,6 +431,7 @@ function updateLanguage() {
   render();
   if (lastNotice) notice(lastNotice.key, lastNotice.error, lastNotice.values);
   showFormError(formError);
+  showLoginError(loginError);
 }
 $('#language').addEventListener('change', updateLanguage);
 applyLanguage();

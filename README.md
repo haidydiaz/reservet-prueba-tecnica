@@ -6,6 +6,11 @@ Completa una aplicación para el personal de un restaurante: **login, gestión d
 mesas y persistencia en PostgreSQL**. Trabaja localmente, publica la solución en
 **tu propio GitHub** y entrega la URL con instrucciones reproducibles.
 
+> **Solución del candidato:** login con sesiones, API de mesas protegida, interfaz conectada y
+> pruebas. Instalación, variables, seed, pruebas, decisiones, registro de problemas y uso de IA:
+> [docs/SOLUCION.md](docs/SOLUCION.md). Arranque rápido: `npm ci`, copiar `.env.example` a `.env`,
+> `npm run db:migrate`, `npm run db:seed`, `npm run dev`.
+
 Este README define el alcance obligatorio. El plazo lo comunica el evaluador;
 documenta cualquier tarea incompleta. Las etapas adicionales de las guías no
 forman parte de esta prueba.

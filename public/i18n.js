@@ -22,8 +22,7 @@ const messages = {
     api: 'Mi API local',
     demoDescription:
       'Explora la interfaz con mesas de ejemplo. Los cambios se pierden al recargar.',
-    apiDescription:
-      'Esta vista usa tus endpoints reales. Implementa el primer ejercicio para conectar las mesas.',
+    apiDescription: 'Esta vista usa tu API real y requiere iniciar sesión con el usuario del seed.',
     summary: 'Resumen del salón',
     total: 'Total de mesas',
     inRoom: 'En el salón principal',
@@ -88,6 +87,22 @@ const messages = {
     language: 'Idioma',
     tableName: 'Mesa',
     terrace: 'Terraza',
+    loginTitle: 'Inicia sesión',
+    loginHint: 'Usa el usuario creado con npm run db:seed para gestionar tus mesas.',
+    username: 'Usuario',
+    password: 'Contraseña',
+    signIn: 'Entrar',
+    signingIn: 'Entrando…',
+    signOut: 'Cerrar sesión',
+    signedInAs: 'Sesión: {name}',
+    loginRequired: 'Inicia sesión para ver y gestionar tus mesas.',
+    loginRequiredTitle: 'Inicia sesión para continuar',
+    loginRequiredHint: 'Tus mesas aparecerán cuando entres.',
+    loginValidation: 'Escribe tu usuario y tu contraseña.',
+    invalidCredentials: 'Usuario o contraseña incorrectos.',
+    sessionRequired: 'Tu sesión no es válida o ya caducó. Inicia sesión de nuevo.',
+    tooManyAttempts: 'Demasiados intentos. Espera unos minutos antes de volver a intentarlo.',
+    loggedOut: 'Sesión cerrada.',
   },
   en: {
     title: 'Reservet · Tables',
@@ -110,8 +125,7 @@ const messages = {
     demo: 'Demo',
     api: 'My local API',
     demoDescription: 'Explore the interface with sample tables. Changes reset when you reload.',
-    apiDescription:
-      'This view uses your real endpoints. Complete the first exercise to connect your tables.',
+    apiDescription: 'This view uses your real API and requires signing in with the seeded user.',
     summary: 'Dining room overview',
     total: 'Total tables',
     inRoom: 'In the main dining room',
@@ -175,6 +189,22 @@ const messages = {
     language: 'Language',
     tableName: 'Table',
     terrace: 'Terrace',
+    loginTitle: 'Sign in',
+    loginHint: 'Use the user created with npm run db:seed to manage your tables.',
+    username: 'Username',
+    password: 'Password',
+    signIn: 'Sign in',
+    signingIn: 'Signing in…',
+    signOut: 'Sign out',
+    signedInAs: 'Signed in: {name}',
+    loginRequired: 'Sign in to view and manage your tables.',
+    loginRequiredTitle: 'Sign in to continue',
+    loginRequiredHint: 'Your tables will appear once you are in.',
+    loginValidation: 'Enter your username and password.',
+    invalidCredentials: 'Incorrect username or password.',
+    sessionRequired: 'Your session is not valid or has expired. Please sign in again.',
+    tooManyAttempts: 'Too many attempts. Wait a few minutes before trying again.',
+    loggedOut: 'Signed out.',
   },
   ru: {
     title: 'Reservet · Столики',
@@ -199,7 +229,7 @@ const messages = {
     demoDescription:
       'Изучите интерфейс на примере столиков. При перезагрузке изменения сбрасываются.',
     apiDescription:
-      'Здесь используются ваши реальные эндпоинты. Выполните первое задание, чтобы подключить столики.',
+      'Здесь используется ваш реальный API, нужно войти под пользователем, созданным seed-скриптом.',
     summary: 'Обзор зала',
     total: 'Всего столиков',
     inRoom: 'В основном зале',
@@ -264,11 +294,28 @@ const messages = {
     language: 'Язык',
     tableName: 'Столик',
     terrace: 'Терраса',
+    loginTitle: 'Вход',
+    loginHint: 'Войдите под пользователем, созданным командой npm run db:seed.',
+    username: 'Имя пользователя',
+    password: 'Пароль',
+    signIn: 'Войти',
+    signingIn: 'Вход…',
+    signOut: 'Выйти',
+    signedInAs: 'Вы вошли: {name}',
+    loginRequired: 'Войдите, чтобы просматривать столики и управлять ими.',
+    loginRequiredTitle: 'Войдите, чтобы продолжить',
+    loginRequiredHint: 'Столики появятся после входа.',
+    loginValidation: 'Введите имя пользователя и пароль.',
+    invalidCredentials: 'Неверное имя пользователя или пароль.',
+    sessionRequired: 'Сессия недействительна или истекла. Войдите снова.',
+    tooManyAttempts: 'Слишком много попыток. Подождите несколько минут и повторите.',
+    loggedOut: 'Вы вышли из системы.',
   },
 };
+const STORAGE_KEY = 'reservet.language';
 let language = 'es';
 try {
-  const saved = localStorage.getItem('reservet.lang');
+  const saved = localStorage.getItem(STORAGE_KEY);
   if (Object.hasOwn(messages, saved)) language = saved;
 } catch {
   /* Storage may be disabled. */
@@ -328,12 +375,18 @@ const bindings = [
   ['#cancel-dialog', 'cancel'],
   ['#language-label', 'language'],
   ['#language', 'language', 'aria-label'],
+  ['#login-title', 'loginTitle'],
+  ['#login-hint', 'loginHint'],
+  ['#login-username-label', 'username'],
+  ['#login-password-label', 'password'],
+  ['#login-submit', 'signIn'],
+  ['#logout', 'signOut'],
 ];
 export function applyLanguage(next = language) {
   if (!Object.hasOwn(messages, next)) return;
   language = next;
   try {
-    localStorage.setItem('reservet.language', language);
+    localStorage.setItem(STORAGE_KEY, language);
   } catch {
     /* Optional preference. */
   }
