@@ -158,10 +158,13 @@ verificarla en un entorno aislado. Los límites de ese entorno están en la secc
   login, credenciales incorrectas, login, crear con capacidad 20, duplicado, cambio de estado,
   logout y persistencia del idioma. Sin errores de JavaScript.
 
-**No se pudo ejecutar allí** (no había acceso al registro de npm, así que no estaban instaladas
-`express`, `pg`, `helmet` ni `jsdom`): `npm run check` completo, la capa HTTP de Express contra la base
-real (`tests/api.integration.test.js`) y `tests/ui-auth.test.js` con JSDOM. Están escritas contra el
-contrato descrito, pero **hay que ejecutarlas y corregir lo que falle antes de entregar**.
+**Verificado en CI (GitHub Actions, PR #1, en verde):** `npm run check` completo con un
+PostgreSQL 17 desechable: lint, formato, tipos, todas las pruebas (incluida la capa HTTP de Express
+contra la base real en `tests/api.integration.test.js` y `tests/ui-auth.test.js` con JSDOM) y
+compilación. Las migraciones y el seed se ejecutan dos veces para comprobar que son repetibles.
+
+**Pendiente de comprobación manual:** probar estas instrucciones desde cero en una carpeta nueva y
+confirmar a mano que las mesas y la sesión sobreviven a un reinicio del servidor.
 
 **Pendientes y límites conocidos:**
 
